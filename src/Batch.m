@@ -51,5 +51,15 @@ classdef Batch < matlab.mixin.Copyable
             % Returns copy of batch labels as matrix.
             labels = obj.labels;
         end
+        
+        function sample = GetSample(obj)
+            % Returns one sample as a batch. Usefull for network
+            % configuration
+            if ~isempty(obj.labels)
+                sample = Batch(obj.data(:, 1), obj.labels(:, 1));
+            else
+                sample = Batch(obj.data(:, 1));
+            end
+        end
     end
 end
