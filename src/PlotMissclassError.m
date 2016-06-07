@@ -1,10 +1,14 @@
-function h = PlotMSE(h, results, val_results)
-% PlotMSE Plots mean-square-error as training progresses.
+function h = PlotMissclassError(h, results, val_results)
+% PlotMissclassError
 
 use_val = exist('val_results', 'var') && ~isempty(val_results.GetDataAsMatrix());
-new_mse = MSELoss(results); % TODO optimize double call of MSELoss
+[~, inds_pred] = max(results.GetDataAsMatrix());
+[~, inds_lbl] = max(results.GetLabelsAsMatrix());
+new_mse = 100*mean(abs(inds_pred-inds_lbl)>0.01);
 if use_val
-    new_val_mse = MSELoss(val_results);
+    [~, inds_pred] = max(val_results.GetDataAsMatrix());
+    [~, inds_lbl] = max(val_results.GetLabelsAsMatrix());
+    new_val_mse = 100*mean(abs(inds_pred-inds_lbl)>0.01);
 end
 if ~ishandle(h)
     h = figure();
@@ -16,7 +20,7 @@ if ~ishandle(h)
         legend(h.CurrentAxes, 'Train', 'Validation');
     end
     xlabel(h.CurrentAxes, 'Epochs');
-    ylabel(h.CurrentAxes, 'MSE');
+    ylabel(h.CurrentAxes, 'Missclassification, %');
     ep = 1;
 else
     x = get(h.CurrentAxes.Children(end), 'XData');
@@ -41,7 +45,7 @@ else
 end
 
 if ~use_val
-    title(h.CurrentAxes, ['MSE = ' num2str(new_mse) ' after training for ', num2str(ep), ' epochs']);
+    title(h.CurrentAxes, ['Missclasification = ' num2str(new_mse) '% after training for ', num2str(ep), ' epochs']);
 else
-    title(h.CurrentAxes, ['Validation MSE = ' num2str(new_val_mse) ' after training for ', num2str(ep), ' epochs']);
+    title(h.CurrentAxes, ['Validation missclasification = ' num2str(new_val_mse) '% after training for ', num2str(ep), ' epochs']);
 end

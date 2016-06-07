@@ -2,11 +2,13 @@
 % Expects batch variable to be in workspace.
 %% Create network
 net = Network();
-net.AddLayer(FullyConnectedLayer(100));
-net.AddLayer(FullyConnectedLayer(10));
-net.Configure(batch.GetSample());
+net.AddLayer(FullyConnectedLayer(100, @ReluTransfer, @DerReluTransfer));
+net.AddLayer(SoftMaxLayer());
+net.Configure(batches{1}.GetSample());
 %% Add monitoring
-net.AddTrainingPlot(@PlotMSE);
+net.AddTrainingPlot(@PlotMissclassError);
 %% Start training
-net.SetEpochsNum(50);
-net.Train(batch);
+net.SetEpochsNum(1000);
+net.SetEarlyStoping(10);
+net.SetLoss(@CrossentropyLoss);
+net.Train(batches);

@@ -1,10 +1,10 @@
-function h = PlotMSE(h, results, val_results)
-% PlotMSE Plots mean-square-error as training progresses.
+function h = PlotCrossentropy(h, results, val_results)
+% PlotCrossentropy
 
 use_val = exist('val_results', 'var') && ~isempty(val_results.GetDataAsMatrix());
-new_mse = MSELoss(results); % TODO optimize double call of MSELoss
+new_mse = CrossentropyLoss(results); % TODO optimize double call of MSELoss
 if use_val
-    new_val_mse = MSELoss(val_results);
+    new_val_mse = CrossentropyLoss(val_results);
 end
 if ~ishandle(h)
     h = figure();
@@ -16,7 +16,7 @@ if ~ishandle(h)
         legend(h.CurrentAxes, 'Train', 'Validation');
     end
     xlabel(h.CurrentAxes, 'Epochs');
-    ylabel(h.CurrentAxes, 'MSE');
+    ylabel(h.CurrentAxes, 'Crossentropy');
     ep = 1;
 else
     x = get(h.CurrentAxes.Children(end), 'XData');
@@ -41,7 +41,7 @@ else
 end
 
 if ~use_val
-    title(h.CurrentAxes, ['MSE = ' num2str(new_mse) ' after training for ', num2str(ep), ' epochs']);
+    title(h.CurrentAxes, ['Crossentropy = ' num2str(new_mse) ' after training for ', num2str(ep), ' epochs']);
 else
-    title(h.CurrentAxes, ['Validation MSE = ' num2str(new_val_mse) ' after training for ', num2str(ep), ' epochs']);
+    title(h.CurrentAxes, ['Validation crossentropy = ' num2str(new_val_mse) ' after training for ', num2str(ep), ' epochs']);
 end

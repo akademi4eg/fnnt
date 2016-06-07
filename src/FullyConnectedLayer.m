@@ -1,5 +1,5 @@
 classdef FullyConnectedLayer < Layer
-    properties
+    properties (SetAccess = protected)
         Transfer;
         DerTransfer;
         Weights;
@@ -12,6 +12,10 @@ classdef FullyConnectedLayer < Layer
     methods
         function obj = FullyConnectedLayer(neurons_num, transfer_fun, ...
                                        der_transfer_fun, w_init, b_init)
+            if nargin < 1 || ~isnumeric(neurons_num)
+                % prevent execution for subclasses like softmax
+                return;
+            end
             if ~exist('w_init', 'var')
                 w_init = @(n, m)0.1*randn(n, m);
             end
@@ -55,11 +59,11 @@ classdef FullyConnectedLayer < Layer
             grads_batch.TransformData(@(x)gfun(x, batch.GetDataAsMatrix()));
         end
         
-        function Update(obj, batch, grads_batch)
+        function Update(obj, batch_in, batch_out, grads_batch)
             obj.ForwardFun = [];
             obj.BackwardFun = [];
-            dW = (grads_batch.GetDataAsMatrix()*batch.GetDataAsMatrix()');
-            dW = dW / batch.GetBatchSize();
+            dW = (grads_batch.GetDataAsMatrix().*obj.DerTransfer(batch_out.GetDataAsMatrix()))*batch_in.GetDataAsMatrix()';
+            dW = dW / batch_in.GetBatchSize();
             db = mean(grads_batch.GetDataAsMatrix(), 2);
             obj.Weights = obj.Weights - 0.1 * dW;
             obj.Biases = obj.Biases - 0.1 * db;
