@@ -21,12 +21,17 @@ classdef SoftMaxLayer < FullyConnectedLayer
             fun = obj.ForwardFun;
         end
         
-        function Update(obj, batch_in, batch_out, grads_batch)
+        function Update(obj, batch_in, batch_out, grads_batch, train_params)
             obj.ForwardFun = [];
             obj.BackwardFun = [];
             dW = (grads_batch.GetDataAsMatrix().*obj.DerTransfer(batch_out.GetDataAsMatrix()))*batch_in.GetDataAsMatrix()';
             dW = dW / batch_in.GetBatchSize();
-            obj.Weights = obj.Weights - 0.1 * dW;
+            if strcmp(train_params.regularization.type, 'L2')
+                dW = dW + train_params.regularization.param * obj.Weights/numel(obj.Weights);
+            elseif strcmp(train_params.regularization.type, 'L1')
+                dW = dW + train_params.regularization.param * sign(obj.Weights)/numel(obj.Weights);
+            end
+            obj.Weights = obj.Weights - train_params.learn_rate * dW;
         end
     end
 end

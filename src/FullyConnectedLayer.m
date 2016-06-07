@@ -59,14 +59,29 @@ classdef FullyConnectedLayer < Layer
             grads_batch.TransformData(@(x)gfun(x, batch.GetDataAsMatrix()));
         end
         
-        function Update(obj, batch_in, batch_out, grads_batch)
+        function reg = GetRegLoss(obj, train_params)
+            if strcmp(train_params.regularization.type, 'L2')
+                reg = train_params.regularization.param * mean(obj.Weights(:).^2);
+            elseif strcmp(train_params.regularization.type, 'L1')
+                reg = train_params.regularization.param * mean(abs(obj.Weights(:)));
+            else
+                reg = 0;
+            end
+        end
+        
+        function Update(obj, batch_in, batch_out, grads_batch, train_params)
             obj.ForwardFun = [];
             obj.BackwardFun = [];
             dW = (grads_batch.GetDataAsMatrix().*obj.DerTransfer(batch_out.GetDataAsMatrix()))*batch_in.GetDataAsMatrix()';
             dW = dW / batch_in.GetBatchSize();
+            if strcmp(train_params.regularization.type, 'L2')
+                dW = dW + train_params.regularization.param * obj.Weights/numel(obj.Weights);
+            elseif strcmp(train_params.regularization.type, 'L1')
+                dW = dW + train_params.regularization.param * sign(obj.Weights)/numel(obj.Weights);
+            end
             db = mean(grads_batch.GetDataAsMatrix(), 2);
-            obj.Weights = obj.Weights - 0.1 * dW;
-            obj.Biases = obj.Biases - 0.1 * db;
+            obj.Weights = obj.Weights - train_params.learn_rate * dW;
+            obj.Biases = obj.Biases - train_params.learn_rate * db;
         end
     end
 end

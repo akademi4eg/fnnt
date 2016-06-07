@@ -7,7 +7,14 @@ classdef Network < handle
     methods
         function obj = Network()
             obj.training = struct('epochs', 100, 'plots', {{}}, ...
-                'plots_handles', {{}}, 'loss', @MSELoss, 'early_stop', Inf);
+                'plots_handles', {{}}, 'loss', @MSELoss, ...
+                'early_stop', Inf, 'learn_rate', 0.1, ...
+                'regularization', struct('type', 'none', 'param', 0));
+        end
+        
+        function SetRegularization(obj, type, param)
+            obj.training.regularization.type = type;
+            obj.training.regularization.param = param;
         end
         
         function SetEpochsNum(obj, epochs)
@@ -69,7 +76,8 @@ classdef Network < handle
         
         function Update(obj, results, grads)
             for i = 1:length(results)-1
-                obj.layers{i}.Update(results(i), results(i+1), grads(i+1));
+                obj.layers{i}.Update(results(i), results(i+1), grads(i+1), ...
+                    obj.training);
             end
         end
         
@@ -87,14 +95,15 @@ classdef Network < handle
                 end
             end
             for i = 1:obj.training.epochs
-                % train
-                for bi = 1:length(batches)
+                % TRAIN
+                % permute batches on each iteration
+                for bi = randperm(length(batches))
                     if ~strcmp(batches{bi}.set_id, 'trn'), continue; end
                     results = obj.Apply(copy(batches{bi}));
                     grads = obj.Backprop(results);
                     obj.Update(results, grads);
                 end
-                % eval
+                % EVAL
                 results = zeros(batches{1}.GetLabelsNum()*2, len);
                 val_results = zeros(batches{1}.GetLabelsNum()*2, val_len);
                 cur_ind = 1;
@@ -112,13 +121,18 @@ classdef Network < handle
                 results = Batch(results(1:end/2, :), results(end/2+1:end, :));
                 val_results = Batch(val_results(1:end/2, :), val_results(end/2+1:end, :));
                 new_val_loss = obj.training.loss(val_results);
+                for l = obj.layers
+                    new_val_loss = new_val_loss + l{1}.GetRegLoss(obj.training);
+                end
                 if new_val_loss >= val_loss
                     fails = fails + 1;
+                    fprintf('.');
                 else
+                    if fails > 0, fprintf('\n'); end
                     val_loss = new_val_loss;
                     fails = 0;
                 end
-                % show
+                % SHOW
                 for j = 1:length(obj.training.plots)
                     obj.training.plots_handles{j} = ...
                         obj.training.plots{j}(obj.training.plots_handles{j}, results, val_results);
@@ -130,8 +144,15 @@ classdef Network < handle
                 end
             end
             el_time = toc;
-            fprintf('Done training. After %d epochs (%d seconds) validation loss is %f.\n', ...
-                i, el_time, new_val_loss);
+            if el_time < 1000
+                str_time = [num2str(round(el_time)) ' seconds'];
+            elseif el_time < 300*60
+                str_time = [num2str(round(el_time/60)) ' minutes'];
+            else
+                str_time = [num2str(round(el_time/60/60)) ' hours'];
+            end
+            fprintf('Done training. After %d epochs (%s) validation loss is %f.\n', ...
+                i, str_time, new_val_loss);
         end
     end
 end
