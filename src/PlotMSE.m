@@ -1,8 +1,8 @@
-function h = PlotMSE(h, results, val_results)
+function h = PlotMSE(h, results, val_results, reg_loss)
 % PlotMSE Plots mean-square-error as training progresses.
 
 use_val = exist('val_results', 'var') && ~isempty(val_results.GetDataAsMatrix());
-new_mse = MSELoss(results); % TODO optimize double call of MSELoss
+new_mse = MSELoss(results) + reg_loss; % TODO optimize double call of MSELoss
 if use_val
     new_val_mse = MSELoss(val_results);
 end

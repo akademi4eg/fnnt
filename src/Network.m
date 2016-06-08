@@ -88,8 +88,16 @@ classdef Network < handle
             end
         end
         
+        function layers = GetLayersCopy(obj)
+            layers = cell(size(obj.Layers));
+            for i = 1:length(obj.Layers)
+                layers{i} = copy(obj.Layers{i});
+            end
+        end
+        
         function Train(obj, batches)
             tic;
+            cur_best_net = obj.GetLayersCopy();
             fails = 0;
             len = 0;
             val_len = 0;
@@ -130,9 +138,11 @@ classdef Network < handle
                 results = Batch(results(1:end/2, :), results(end/2+1:end, :));
                 val_results = Batch(val_results(1:end/2, :), val_results(end/2+1:end, :));
                 new_val_loss = obj.Training.loss(val_results);
+                reg_loss = 0;
                 for l = obj.Layers
-                    new_val_loss = new_val_loss + l{1}.GetRegLoss(obj.Training);
+                    reg_loss = reg_loss + l{1}.GetRegLoss(obj.Training);
                 end
+                new_val_loss = new_val_loss + reg_loss;
                 if new_val_loss >= val_loss
                     fails = fails + 1;
                     fprintf('.');
@@ -140,11 +150,12 @@ classdef Network < handle
                     if fails > 0, fprintf('\n'); end
                     val_loss = new_val_loss;
                     fails = 0;
+                    cur_best_net = obj.GetLayersCopy();
                 end
                 % SHOW
                 for j = 1:length(obj.Training.plots)
                     obj.Training.plots_handles{j} = ...
-                        obj.Training.plots{j}(obj.Training.plots_handles{j}, results, val_results);
+                        obj.Training.plots{j}(obj.Training.plots_handles{j}, results, val_results, reg_loss);
                 end
                 drawnow;
                 if fails >= obj.Training.early_stop
@@ -161,8 +172,9 @@ classdef Network < handle
                 str_time = [num2str(round(el_time/60/60)) ' hours'];
             end
             fprintf('Done training. After %d epochs (%s) validation loss is %f.\n', ...
-                i, str_time, new_val_loss);
+                i, str_time, val_loss);
             obj.Mode = 'eval';
+            obj.Layers = cur_best_net;
         end
     end
 end

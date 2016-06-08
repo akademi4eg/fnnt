@@ -1,4 +1,4 @@
-classdef (Abstract) Layer < handle
+classdef (Abstract) Layer < matlab.mixin.Copyable
     methods (Abstract)
         Configure(obj, batch);
         Forward(obj, batch);

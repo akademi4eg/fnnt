@@ -2,7 +2,7 @@ classdef SoftMaxLayer < FullyConnectedLayer
     methods
         function obj = SoftMaxLayer(w_init)
             if ~exist('w_init', 'var')
-                w_init = @(n, m)0.1*randn(n, m);
+                w_init = @(n, m)0.01*randn(n, m);
             end
             obj.WeightsInitializer = w_init;
             obj.Biases = [];

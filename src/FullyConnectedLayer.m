@@ -17,10 +17,10 @@ classdef FullyConnectedLayer < Layer
                 return;
             end
             if ~exist('w_init', 'var')
-                w_init = @(n, m)0.1*randn(n, m);
+                w_init = @(n, m)0.01*randn(n, m);
             end
             if ~exist('b_init', 'var')
-                b_init = @(n)0.1*randn(n, 1);
+                b_init = @(n)0.01*randn(n, 1);
             end
             if ~exist('transfer_fun', 'var') || ~exist('der_transfer_fun', 'var')
                 transfer_fun = @TansigTransfer;

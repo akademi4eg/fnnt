@@ -1,4 +1,4 @@
-function h = PlotMissclassError(h, results, val_results)
+function h = PlotMissclassError(h, results, val_results, ~)
 % PlotMissclassError
 
 use_val = exist('val_results', 'var') && ~isempty(val_results.GetDataAsMatrix());

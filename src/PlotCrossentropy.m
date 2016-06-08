@@ -1,8 +1,8 @@
-function h = PlotCrossentropy(h, results, val_results)
+function h = PlotCrossentropy(h, results, val_results, reg_loss)
 % PlotCrossentropy
 
 use_val = exist('val_results', 'var') && ~isempty(val_results.GetDataAsMatrix());
-new_mse = CrossentropyLoss(results); % TODO optimize double call of MSELoss
+new_mse = CrossentropyLoss(results) + reg_loss; % TODO optimize double call of MSELoss
 if use_val
     new_val_mse = CrossentropyLoss(val_results);
 end
