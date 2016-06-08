@@ -1,52 +1,59 @@
 classdef Network < handle
     % Network Top-level object for network operations.
     properties (SetAccess = protected)
-        layers = {}; % sequence of network layers objects
-        training; % structure with training and monitoring parameters
+        Layers = {}; % sequence of network layers objects
+        Training; % structure with training and monitoring parameters
+        Mode;
     end
     methods
         function obj = Network()
-            obj.training = struct('epochs', 100, 'plots', {{}}, ...
+            obj.Training = struct('epochs', 100, 'plots', {{}}, ...
                 'plots_handles', {{}}, 'loss', @MSELoss, ...
                 'early_stop', Inf, 'learn_rate', 0.1, ...
                 'regularization', struct('type', 'none', 'param', 0));
+            obj.Mode = 'blank';
         end
         
         function SetRegularization(obj, type, param)
-            obj.training.regularization.type = type;
-            obj.training.regularization.param = param;
+            obj.Training.regularization.type = type;
+            obj.Training.regularization.param = param;
         end
         
         function SetEpochsNum(obj, epochs)
-            obj.training.epochs = epochs;
+            obj.Training.epochs = epochs;
         end
         
         function SetEarlyStoping(obj, epochs)
-            obj.training.early_stop = epochs;
+            obj.Training.early_stop = epochs;
         end
         
         function SetLoss(obj, loss_fcn)
-            obj.training.loss = loss_fcn;
+            obj.Training.loss = loss_fcn;
         end
         
         function AddTrainingPlot(obj, plot_fcn)
-            obj.training.plots{end+1} = plot_fcn;
-            obj.training.plots_handles{end+1} = NaN;
+            obj.Training.plots{end+1} = plot_fcn;
+            obj.Training.plots_handles{end+1} = NaN;
         end
         
         function AddLayer(obj, layer)
-            obj.layers{end+1} = layer;
+            obj.Layers{end+1} = layer;
         end
         
         function Configure(obj, batch)
-            for l = obj.layers
+            for l = obj.Layers
                 l{1}.Configure(batch);
                 l{1}.Forward(batch);
             end
+            obj.Mode = 'train';
         end
         
         function results = Apply(obj, batch)
-            for l = obj.layers
+            for l = obj.Layers
+                if ~strcmp(obj.Mode, 'train') && isa(l{1}, 'DropoutLayer')
+                    % don't use dropout outside of training
+                    continue;
+                end
                 if nargout > 0
                     if ~exist('results', 'var')
                         results = copy(batch);
@@ -66,18 +73,18 @@ classdef Network < handle
         end
         
         function grads = Backprop(obj, results)
-            [~, delta] = obj.training.loss(results(end));
+            [~, delta] = obj.Training.loss(results(end));
             grads = copy(delta);
             for i = length(results):-1:2
-                obj.layers{i-1}.Backward(results(i), delta);
+                obj.Layers{i-1}.Backward(results(i), delta);
                 grads = [copy(delta), grads];%#ok
             end
         end
         
         function Update(obj, results, grads)
             for i = 1:length(results)-1
-                obj.layers{i}.Update(results(i), results(i+1), grads(i+1), ...
-                    obj.training);
+                obj.Layers{i}.Update(results(i), results(i+1), grads(i+1), ...
+                    obj.Training);
             end
         end
         
@@ -94,8 +101,9 @@ classdef Network < handle
                     val_len = val_len + batches{bi}.GetBatchSize();
                 end
             end
-            for i = 1:obj.training.epochs
+            for i = 1:obj.Training.epochs
                 % TRAIN
+                obj.Mode = 'train';
                 % permute batches on each iteration
                 for bi = randperm(length(batches))
                     if ~strcmp(batches{bi}.set_id, 'trn'), continue; end
@@ -104,6 +112,7 @@ classdef Network < handle
                     obj.Update(results, grads);
                 end
                 % EVAL
+                obj.Mode = 'eval';
                 results = zeros(batches{1}.GetLabelsNum()*2, len);
                 val_results = zeros(batches{1}.GetLabelsNum()*2, val_len);
                 cur_ind = 1;
@@ -120,9 +129,9 @@ classdef Network < handle
                 end
                 results = Batch(results(1:end/2, :), results(end/2+1:end, :));
                 val_results = Batch(val_results(1:end/2, :), val_results(end/2+1:end, :));
-                new_val_loss = obj.training.loss(val_results);
-                for l = obj.layers
-                    new_val_loss = new_val_loss + l{1}.GetRegLoss(obj.training);
+                new_val_loss = obj.Training.loss(val_results);
+                for l = obj.Layers
+                    new_val_loss = new_val_loss + l{1}.GetRegLoss(obj.Training);
                 end
                 if new_val_loss >= val_loss
                     fails = fails + 1;
@@ -133,13 +142,13 @@ classdef Network < handle
                     fails = 0;
                 end
                 % SHOW
-                for j = 1:length(obj.training.plots)
-                    obj.training.plots_handles{j} = ...
-                        obj.training.plots{j}(obj.training.plots_handles{j}, results, val_results);
+                for j = 1:length(obj.Training.plots)
+                    obj.Training.plots_handles{j} = ...
+                        obj.Training.plots{j}(obj.Training.plots_handles{j}, results, val_results);
                 end
                 drawnow;
-                if fails >= obj.training.early_stop
-                    fprintf('Early stoping triggered after %d stale epochs.\n', fails);
+                if fails >= obj.Training.early_stop
+                    fprintf('\nEarly stoping triggered after %d stale epochs.\n', fails);
                     break;
                 end
             end
@@ -153,6 +162,7 @@ classdef Network < handle
             end
             fprintf('Done training. After %d epochs (%s) validation loss is %f.\n', ...
                 i, str_time, new_val_loss);
+            obj.Mode = 'eval';
         end
     end
 end
