@@ -24,14 +24,29 @@ classdef SoftMaxLayer < FullyConnectedLayer
         function Update(obj, batch_in, batch_out, grads_batch, train_params)
             obj.ForwardFun = [];
             obj.BackwardFun = [];
+            % weights delta
             dW = (grads_batch.GetDataAsMatrix().*obj.DerTransfer(batch_out.GetDataAsMatrix()))*batch_in.GetDataAsMatrix()';
             dW = dW / batch_in.GetBatchSize();
+            % regularization
             if strcmp(train_params.regularization.type, 'L2')
                 dW = dW + train_params.regularization.param * obj.Weights/numel(obj.Weights);
             elseif strcmp(train_params.regularization.type, 'L1')
                 dW = dW + train_params.regularization.param * sign(obj.Weights)/numel(obj.Weights);
             end
-            obj.Weights = obj.Weights - train_params.learn_rate * dW;
+            % momentum
+            if strcmp(train_params.momentum.type, 'CM')
+                if isempty(obj.DeltaWeightsMom)
+                    obj.DeltaWeightsMom = train_params.learn_rate*dW;
+                else
+                    obj.DeltaWeightsMom = train_params.momentum.param*obj.DeltaWeightsMom ...
+                        + (1-train_params.momentum.param)*train_params.learn_rate*dW;
+                end
+                dW = obj.DeltaWeightsMom;
+            else
+                dW = train_params.learn_rate * dW;
+            end
+            % update!
+            obj.Weights = obj.Weights - dW;
         end
     end
 end

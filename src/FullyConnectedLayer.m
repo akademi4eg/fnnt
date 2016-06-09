@@ -7,6 +7,8 @@ classdef FullyConnectedLayer < Layer
         WeightsInitializer;
         ForwardFun;
         BackwardFun;
+        DeltaWeightsMom = [];
+        DeltaBiasesMom = [];
     end
     
     methods
@@ -72,16 +74,37 @@ classdef FullyConnectedLayer < Layer
         function Update(obj, batch_in, batch_out, grads_batch, train_params)
             obj.ForwardFun = [];
             obj.BackwardFun = [];
+            % weights delta
             dW = (grads_batch.GetDataAsMatrix().*obj.DerTransfer(batch_out.GetDataAsMatrix()))*batch_in.GetDataAsMatrix()';
             dW = dW / batch_in.GetBatchSize();
+            % regularization
             if strcmp(train_params.regularization.type, 'L2')
                 dW = dW + train_params.regularization.param * obj.Weights/numel(obj.Weights);
             elseif strcmp(train_params.regularization.type, 'L1')
                 dW = dW + train_params.regularization.param * sign(obj.Weights)/numel(obj.Weights);
             end
+            % biases delta
             db = mean(grads_batch.GetDataAsMatrix(), 2);
-            obj.Weights = obj.Weights - train_params.learn_rate * dW;
-            obj.Biases = obj.Biases - train_params.learn_rate * db;
+            % momentum
+            if strcmp(train_params.momentum.type, 'CM')
+                if isempty(obj.DeltaBiasesMom)
+                    obj.DeltaBiasesMom = train_params.learn_rate*db;
+                    obj.DeltaWeightsMom = train_params.learn_rate*dW;
+                else
+                    obj.DeltaBiasesMom = train_params.momentum.param*obj.DeltaBiasesMom ...
+                        + (1-train_params.momentum.param)*train_params.learn_rate*db;
+                    obj.DeltaWeightsMom = train_params.momentum.param*obj.DeltaWeightsMom ...
+                        + (1-train_params.momentum.param)*train_params.learn_rate*dW;
+                end
+                db = obj.DeltaBiasesMom;
+                dW = obj.DeltaWeightsMom;
+            else
+                dW = train_params.learn_rate * dW;
+                db = train_params.learn_rate * db;
+            end
+            % update!
+            obj.Weights = obj.Weights - dW;
+            obj.Biases = obj.Biases - db;
         end
     end
 end

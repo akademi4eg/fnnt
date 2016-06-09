@@ -10,7 +10,8 @@ classdef Network < handle
             obj.Training = struct('epochs', 100, 'plots', {{}}, ...
                 'plots_handles', {{}}, 'loss', @MSELoss, ...
                 'early_stop', Inf, 'learn_rate', 0.1, ...
-                'regularization', struct('type', 'none', 'param', 0));
+                'regularization', struct('type', 'none', 'param', 0), ...
+                'momentum', struct('type', 'none', 'param', 0.5, 'step', 0.01, 'end_param', 0.99));
             obj.Mode = 'blank';
         end
         
@@ -19,8 +20,16 @@ classdef Network < handle
             obj.Training.regularization.param = param;
         end
         
-        function SetEpochsNum(obj, epochs)
+        function SetMomentum(obj, type, param, step, end_param)
+            obj.Training.momentum.type = type;
+            obj.Training.momentum.param = param;
+            obj.Training.momentum.step = step;
+            obj.Training.momentum.end_param = end_param;
+        end
+        
+        function SetTrainParams(obj, epochs, learn_rate)
             obj.Training.epochs = epochs;
+            obj.Training.learn_rate = learn_rate;
         end
         
         function SetEarlyStoping(obj, epochs)
@@ -112,6 +121,11 @@ classdef Network < handle
             for i = 1:obj.Training.epochs
                 % TRAIN
                 obj.Mode = 'train';
+                if obj.Training.momentum.param < obj.Training.momentum.end_param
+                    obj.Training.momentum.param = obj.Training.momentum.step ...
+                        + obj.Training.momentum.param;
+                    obj.Training.momentum.param = min(obj.Training.momentum.param, obj.Training.momentum.end_param);
+                end
                 % permute batches on each iteration
                 for bi = randperm(length(batches))
                     if ~strcmp(batches{bi}.set_id, 'trn'), continue; end
