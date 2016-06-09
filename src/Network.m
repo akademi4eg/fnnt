@@ -8,6 +8,7 @@ classdef Network < handle
     methods
         function obj = Network()
             obj.Training = struct('epochs', 100, 'plots', {{}}, ...
+                'show_gui', true, ...
                 'plots_handles', {{}}, 'loss', @MSELoss, ...
                 'early_stop', Inf, 'learn_rate', 0.1, ...
                 'regularization', struct('type', 'none', 'param', 0), ...
@@ -159,9 +160,7 @@ classdef Network < handle
                 new_val_loss = new_val_loss + reg_loss;
                 if new_val_loss >= val_loss
                     fails = fails + 1;
-                    fprintf('.');
                 else
-                    if fails > 0, fprintf('\n'); end
                     val_loss = new_val_loss;
                     fails = 0;
                     cur_best_net = obj.GetLayersCopy();
@@ -170,6 +169,20 @@ classdef Network < handle
                 for j = 1:length(obj.Training.plots)
                     obj.Training.plots_handles{j} = ...
                         obj.Training.plots{j}(obj.Training.plots_handles{j}, results, val_results, reg_loss);
+                end
+                if obj.Training.show_gui
+                    stats = struct('label', {'Epoch', 'Stale epochs', 'Val.loss'}, ...
+                        'min', {1, 0, obj.Training.loss('max')}, 'current', {i, fails, val_loss}, ...
+                        'max', {obj.Training.epochs, obj.Training.early_stop, obj.Training.loss('min')});
+                    if ~strcmp(obj.Training.regularization.type, 'none')
+                        stats = cat(2, stats, struct('label', 'Reg.loss', ...
+                            'min', 1, 'max', 0, 'current', reg_loss));
+                    end
+                    if i > 1
+                        StatsPanel(f, p1, p2, stats);
+                    else
+                        [f, p1, p2] = StatsPanel([], [], [], stats);
+                    end
                 end
                 drawnow;
                 if fails >= obj.Training.early_stop
