@@ -6,8 +6,8 @@ classdef SoftMaxLayer < FullyConnectedLayer
             end
             obj.WeightsInitializer = w_init;
             obj.Biases = [];
-            obj.Transfer = @(x)bsxfun(@times, exp(x), 1./sum(exp(x), 1));
-            obj.DerTransfer = @(x)x.*(1-x);
+            obj.Transfer = @SoftMaxTransfer;
+            obj.DerTransfer = @DerSoftMaxTransfer;
         end
         
         function Configure(obj, batch)
@@ -33,17 +33,20 @@ classdef SoftMaxLayer < FullyConnectedLayer
             elseif strcmp(train_params.regularization.type, 'L1')
                 dW = dW + train_params.regularization.param * sign(obj.Weights)/numel(obj.Weights);
             end
+            if max(abs(dW(:))) > train_params.max_delta/train_params.learn_rate.value
+                dW = dW/max(abs(dW(:)))*train_params.max_delta/train_params.learn_rate.value;
+            end
             % momentum
             if strcmp(train_params.momentum.type, 'CM')
                 if isempty(obj.DeltaWeightsMom)
-                    obj.DeltaWeightsMom = train_params.learn_rate*dW;
+                    obj.DeltaWeightsMom = train_params.learn_rate.value*dW;
                 else
                     obj.DeltaWeightsMom = train_params.momentum.param*obj.DeltaWeightsMom ...
-                        + (1-train_params.momentum.param)*train_params.learn_rate*dW;
+                        + (1-train_params.momentum.param)*train_params.learn_rate.value*dW;
                 end
                 dW = obj.DeltaWeightsMom;
             else
-                dW = train_params.learn_rate * dW;
+                dW = train_params.learn_rate.value * dW;
             end
             % update!
             obj.Weights = obj.Weights - dW;

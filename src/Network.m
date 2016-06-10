@@ -10,7 +10,8 @@ classdef Network < handle
             obj.Training = struct('epochs', 100, 'plots', {{}}, ...
                 'show_gui', true, ...
                 'plots_handles', {{}}, 'loss', @MSELoss, ...
-                'early_stop', Inf, 'learn_rate', 0.1, ...
+                'early_stop', Inf, 'max_delta', 0.1, ...
+                'learn_rate', struct('value', 1, 'min_value', 1e-8, 'mult', 0.99), ...
                 'regularization', struct('type', 'none', 'param', 0), ...
                 'momentum', struct('type', 'none', 'param', 0.5, 'step', 0.01, 'end_param', 0.99));
             obj.Mode = 'blank';
@@ -28,9 +29,14 @@ classdef Network < handle
             obj.Training.momentum.end_param = end_param;
         end
         
-        function SetTrainParams(obj, epochs, learn_rate)
+        function SetTrainParams(obj, epochs, learn_rate, learn_mult)
             obj.Training.epochs = epochs;
-            obj.Training.learn_rate = learn_rate;
+            if exist('learn_rate', 'var')
+                obj.Training.learn_rate.value = learn_rate;
+            end
+            if exist('learn_mult', 'var')
+                obj.Training.learn_rate.learn_mult = learn_mult;
+            end
         end
         
         function SetEarlyStoping(obj, epochs)
@@ -122,11 +128,6 @@ classdef Network < handle
             for i = 1:obj.Training.epochs
                 % TRAIN
                 obj.Mode = 'train';
-                if obj.Training.momentum.param < obj.Training.momentum.end_param
-                    obj.Training.momentum.param = obj.Training.momentum.step ...
-                        + obj.Training.momentum.param;
-                    obj.Training.momentum.param = min(obj.Training.momentum.param, obj.Training.momentum.end_param);
-                end
                 % permute batches on each iteration
                 for bi = randperm(length(batches))
                     if ~strcmp(batches{bi}.set_id, 'trn'), continue; end
@@ -171,9 +172,10 @@ classdef Network < handle
                         obj.Training.plots{j}(obj.Training.plots_handles{j}, results, val_results, reg_loss);
                 end
                 if obj.Training.show_gui
-                    stats = struct('label', {'Epoch', 'Stale epochs', 'Val.loss'}, ...
-                        'min', {1, 0, obj.Training.loss('max')}, 'current', {i, fails, val_loss}, ...
-                        'max', {obj.Training.epochs, obj.Training.early_stop, obj.Training.loss('min')});
+                    stats = struct('label', {'Epoch', 'Stale epochs', 'Val.loss', 'Learning rate', 'Momentum'}, ...
+                        'min', {1, 0, obj.Training.loss('max'), 10, 0}, ...
+                        'current', {i, fails, val_loss, obj.Training.learn_rate.value, obj.Training.momentum.param}, ...
+                        'max', {obj.Training.epochs, obj.Training.early_stop, obj.Training.loss('min'), obj.Training.learn_rate.min_value, 1});
                     if ~strcmp(obj.Training.regularization.type, 'none')
                         stats = cat(2, stats, struct('label', 'Reg.loss', ...
                             'min', 1, 'max', 0, 'current', reg_loss));
@@ -189,6 +191,14 @@ classdef Network < handle
                     fprintf('\nEarly stoping triggered after %d stale epochs.\n', fails);
                     break;
                 end
+                % UPDATE hyperparams
+                if obj.Training.momentum.param < obj.Training.momentum.end_param
+                    obj.Training.momentum.param = obj.Training.momentum.step ...
+                        + obj.Training.momentum.param;
+                    obj.Training.momentum.param = min(obj.Training.momentum.param, obj.Training.momentum.end_param);
+                end
+                obj.Training.learn_rate.value = obj.Training.learn_rate.value*obj.Training.learn_rate.mult;
+                obj.Training.learn_rate.value = max(obj.Training.learn_rate.value, obj.Training.learn_rate.min_value);
             end
             el_time = toc;
             if el_time < 1000

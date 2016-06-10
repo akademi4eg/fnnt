@@ -83,24 +83,30 @@ classdef FullyConnectedLayer < Layer
             elseif strcmp(train_params.regularization.type, 'L1')
                 dW = dW + train_params.regularization.param * sign(obj.Weights)/numel(obj.Weights);
             end
+            if max(abs(dW(:))) > train_params.max_delta/train_params.learn_rate.value
+                dW = dW/max(abs(dW(:)))*train_params.max_delta/train_params.learn_rate.value;
+            end
             % biases delta
             db = mean(grads_batch.GetDataAsMatrix(), 2);
+            if max(abs(db(:))) > train_params.max_delta/train_params.learn_rate.value
+                db = db/max(abs(db(:)))*train_params.max_delta/train_params.learn_rate.value;
+            end
             % momentum
             if strcmp(train_params.momentum.type, 'CM')
                 if isempty(obj.DeltaBiasesMom)
-                    obj.DeltaBiasesMom = train_params.learn_rate*db;
-                    obj.DeltaWeightsMom = train_params.learn_rate*dW;
+                    obj.DeltaBiasesMom = train_params.learn_rate.value*db;
+                    obj.DeltaWeightsMom = train_params.learn_rate.value*dW;
                 else
                     obj.DeltaBiasesMom = train_params.momentum.param*obj.DeltaBiasesMom ...
-                        + (1-train_params.momentum.param)*train_params.learn_rate*db;
+                        + (1-train_params.momentum.param)*train_params.learn_rate.value*db;
                     obj.DeltaWeightsMom = train_params.momentum.param*obj.DeltaWeightsMom ...
-                        + (1-train_params.momentum.param)*train_params.learn_rate*dW;
+                        + (1-train_params.momentum.param)*train_params.learn_rate.value*dW;
                 end
                 db = obj.DeltaBiasesMom;
                 dW = obj.DeltaWeightsMom;
             else
-                dW = train_params.learn_rate * dW;
-                db = train_params.learn_rate * db;
+                dW = train_params.learn_rate.value * dW;
+                db = train_params.learn_rate.value * db;
             end
             % update!
             obj.Weights = obj.Weights - dW;
