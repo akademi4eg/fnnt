@@ -17,9 +17,25 @@ classdef Network < handle
             obj.Mode = 'blank';
         end
         
+        function SetMode(obj, mode)
+            obj.Mode = mode;
+        end
+        
+        function RemoveLayers(obj, layers)
+            if ischar(layers)
+                mask = cellfun(@(x)isa(x, layers), obj.Layers);
+            else
+                mask = false(size(obj.Layers));
+                mask(layers) = true;
+            end
+            obj.Layers = obj.Layers(~mask);
+        end
+        
         function SetRegularization(obj, type, param)
             obj.Training.regularization.type = type;
-            obj.Training.regularization.param = param;
+            if exist('param', 'var')
+                obj.Training.regularization.param = param;
+            end
         end
         
         function SetMomentum(obj, type, param, step, end_param)
@@ -172,10 +188,10 @@ classdef Network < handle
                         obj.Training.plots{j}(obj.Training.plots_handles{j}, results, val_results, reg_loss);
                 end
                 if obj.Training.show_gui
-                    stats = struct('label', {'Epoch', 'Stale epochs', 'Val.loss', 'Learning rate', 'Momentum'}, ...
-                        'min', {1, 0, obj.Training.loss('max'), 10, 0}, ...
-                        'current', {i, fails, val_loss, obj.Training.learn_rate.value, obj.Training.momentum.param}, ...
-                        'max', {obj.Training.epochs, obj.Training.early_stop, obj.Training.loss('min'), obj.Training.learn_rate.min_value, 1});
+                    stats = struct('label', {'Epoch', 'Stale epochs', 'Learning rate', 'Momentum', 'Val.loss'}, ...
+                        'min', {1, 0, 10, 0, obj.Training.loss('max')}, ...
+                        'current', {i, fails, obj.Training.learn_rate.value, obj.Training.momentum.param, val_loss}, ...
+                        'max', {obj.Training.epochs, obj.Training.early_stop, obj.Training.learn_rate.min_value, 1, obj.Training.loss('min')});
                     if ~strcmp(obj.Training.regularization.type, 'none')
                         stats = cat(2, stats, struct('label', 'Reg.loss', ...
                             'min', 1, 'max', 0, 'current', reg_loss));
@@ -188,7 +204,6 @@ classdef Network < handle
                 end
                 drawnow;
                 if fails >= obj.Training.early_stop
-                    fprintf('\nEarly stoping triggered after %d stale epochs.\n', fails);
                     break;
                 end
                 % UPDATE hyperparams
@@ -211,7 +226,9 @@ classdef Network < handle
             fprintf('Done training. After %d epochs (%s) validation loss is %f.\n', ...
                 i, str_time, val_loss);
             obj.Mode = 'eval';
-            obj.Layers = cur_best_net;
+            if ~isinf(obj.Training.early_stop)
+                obj.Layers = cur_best_net;
+            end
         end
     end
 end
