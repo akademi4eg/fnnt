@@ -2,13 +2,9 @@ function h = PlotMissclassError(h, results, val_results, ~)
 % PlotMissclassError
 
 use_val = exist('val_results', 'var') && ~isempty(val_results.GetDataAsMatrix());
-[~, inds_pred] = max(results.GetDataAsMatrix());
-[~, inds_lbl] = max(results.GetLabelsAsMatrix());
-new_mse = 100*mean(abs(inds_pred-inds_lbl)>0.01);
+new_mse = GetMissclassRate(results);
 if use_val
-    [~, inds_pred] = max(val_results.GetDataAsMatrix());
-    [~, inds_lbl] = max(val_results.GetLabelsAsMatrix());
-    new_val_mse = 100*mean(abs(inds_pred-inds_lbl)>0.01);
+    new_val_mse = GetMissclassRate(val_results);
 end
 if ~ishandle(h)
     h = figure();

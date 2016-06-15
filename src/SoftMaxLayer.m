@@ -14,6 +14,9 @@ classdef SoftMaxLayer < FullyConnectedLayer
             obj.Weights = obj.WeightsInitializer(batch.GetLabelsNum(), batch.GetSampleWidth());
         end
         
+        function PreTrain(~, ~, ~)
+        end
+        
         function fun = GetForwardFunction(obj)
             if isempty(obj.ForwardFun)
                 obj.ForwardFun = @(x)obj.Transfer(obj.Weights*x);
@@ -50,6 +53,9 @@ classdef SoftMaxLayer < FullyConnectedLayer
             end
             % update!
             obj.Weights = obj.Weights - dW;
+            
+            obj.ForwardFun = [];
+            obj.BackwardFun = [];
         end
     end
 end

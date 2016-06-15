@@ -3,7 +3,7 @@
 Main purpose of this toolbox is to be flexible enough to do ANN architectures related experiments.
 
 So far it supports only basic building blocks for a network.
-Yet, it is still possible to achieve up to 1.41% error rate on MNIST.
+Yet, it is still possible to achieve circa 1.4% error rate on MNIST.
 
 Some of the features:
 * RELU, tansig and softmax activation functions

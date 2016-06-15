@@ -4,8 +4,10 @@ classdef FullyConnectedLayer < Layer
         DerTransfer;
         Weights;
         Biases;
+        HidBiases;
         WeightsInitializer;
         ForwardFun;
+        ReconstructFun;
         BackwardFun;
         DeltaWeightsMom = [];
         DeltaBiasesMom = [];
@@ -38,11 +40,86 @@ classdef FullyConnectedLayer < Layer
             obj.Weights = obj.WeightsInitializer(batch.GetSampleWidth());
         end
         
+        function PreTrain(obj, batches, train_params)
+            if ~strcmp(func2str(obj.Transfer), 'LogisticTransfer'), return; end
+            fprintf('Pretraining\n');
+            tic;
+            obj.HidBiases = 0.01*randn(size(obj.Weights, 2), 1);
+            prev_err = Inf;
+            fails = 0;
+            for i = 1:train_params.epochs
+                % TRAIN
+                for bi = randperm(length(batches))
+                    obj.ForwardFun = [];
+                    obj.BackwardFun = [];
+                    obj.ReconstructFun = [];
+                    cur_batch = copy(batches{bi});
+                    pos_hid = mean(cur_batch.data, 2);
+                    obj.Forward(cur_batch);
+                    pos_grad = (cur_batch.data*batches{bi}.data.')/batches{bi}.GetBatchSize();
+                    pos_vis = mean(cur_batch.data, 2);
+                    obj.Reconstruct(cur_batch);
+                    cur_batch2 = copy(cur_batch);
+                    neg_hid = mean(cur_batch.data, 2);
+                    obj.Forward(cur_batch2);
+                    neg_grad = (cur_batch2.data*cur_batch.data.')/batches{bi}.GetBatchSize();
+                    neg_vis = mean(cur_batch2.data, 2);
+                    
+                    dW = -train_params.learn_rate.value*(pos_grad-neg_grad);
+                    db = -train_params.learn_rate.value*(pos_vis-neg_vis);
+                    dhb = -train_params.learn_rate.value*(pos_hid-neg_hid);
+                    obj.Weights = obj.Weights - dW;
+                    obj.Biases = obj.Biases - db;
+                    obj.HidBiases = obj.HidBiases - dhb;
+                end
+                obj.ForwardFun = [];
+                obj.BackwardFun = [];
+                obj.ReconstructFun = [];
+                % EVAL
+                err = 0;
+                num = length(batches);
+                for bi = batches
+                    cur_batch = copy(bi{1});
+                    obj.Forward(cur_batch);
+                    obj.Reconstruct(cur_batch);
+                    err = err + mean((cur_batch.data(:)-bi{1}.data(:)).^2);
+                end
+                err = sqrt(err / num);
+                if err <= prev_err
+                    prev_err = err;
+                    fails = 0;
+                else
+                    fails = fails + 1;
+                    if fails >= train_params.early_stop
+                        break;
+                    end
+                end
+                fprintf('After iteration %d, reconstruction error: %2.5f [fails: %d].\n', i, err, fails);
+                drawnow;
+            end
+            el_time = toc;
+            if el_time < 1000
+                str_time = [num2str(round(el_time)) ' seconds'];
+            elseif el_time < 300*60
+                str_time = [num2str(round(el_time/60)) ' minutes'];
+            else
+                str_time = [num2str(round(el_time/60/60)) ' hours'];
+            end
+            fprintf('Pretraining finished (%s). Final reconstruction error: %2.5f\n', str_time, err);
+        end
+        
         function fun = GetForwardFunction(obj)
             if isempty(obj.ForwardFun)
                 obj.ForwardFun = @(x)obj.Transfer(bsxfun(@plus, obj.Weights*x, obj.Biases));
             end
             fun = obj.ForwardFun;
+        end
+        
+        function fun = GetReconstructFunction(obj)
+            if isempty(obj.ReconstructFun)
+                obj.ReconstructFun = @(x)obj.Transfer(bsxfun(@plus, obj.Weights.'*x, obj.HidBiases));
+            end
+            fun = obj.ReconstructFun;
         end
         
         function fun = GetBackwardFunction(obj)
@@ -54,6 +131,10 @@ classdef FullyConnectedLayer < Layer
         
         function Forward(obj, batch)
             batch.TransformData(obj.GetForwardFunction());
+        end
+        
+        function Reconstruct(obj, batch)
+            batch.TransformData(obj.GetReconstructFunction());
         end
         
         function Backward(obj, batch, grads_batch)
@@ -111,6 +192,9 @@ classdef FullyConnectedLayer < Layer
             % update!
             obj.Weights = obj.Weights - dW;
             obj.Biases = obj.Biases - db;
+            
+            obj.ForwardFun = [];
+            obj.BackwardFun = [];
         end
     end
 end

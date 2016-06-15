@@ -13,6 +13,9 @@ classdef DropoutLayer < Layer
             obj.Mask = true(batch.GetSampleWidth(), 1);
         end
         
+        function PreTrain(~, ~, ~)
+        end
+        
         function Forward(obj, batch)
             out_sum = mean(obj.Mask);
             batch.TransformData(@(x)bsxfun(@times, x, obj.Mask/out_sum));

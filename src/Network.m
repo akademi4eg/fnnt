@@ -21,6 +21,10 @@ classdef Network < handle
             obj.Mode = mode;
         end
         
+        function SetMonitoringMode(obj, mode)
+            obj.Training.show_gui = strcmp(mode, 'gui');
+        end
+        
         function RemoveLayers(obj, layers)
             if ischar(layers)
                 mask = cellfun(@(x)isa(x, layers), obj.Layers);
@@ -78,6 +82,15 @@ classdef Network < handle
                 l{1}.Forward(batch);
             end
             obj.Mode = 'train';
+        end
+        
+        function PreTrain(obj, batches)
+            for l = obj.Layers
+                l{1}.PreTrain(batches, obj.Training);
+                for bi = batches
+                    l{1}.Forward(bi{1});
+                end
+            end
         end
         
         function results = Apply(obj, batch)
@@ -188,18 +201,27 @@ classdef Network < handle
                         obj.Training.plots{j}(obj.Training.plots_handles{j}, results, val_results, reg_loss);
                 end
                 if obj.Training.show_gui
-                    stats = struct('label', {'Epoch', 'Stale epochs', 'Learning rate', 'Momentum', 'Val.loss'}, ...
-                        'min', {1, 0, 10, 0, obj.Training.loss('max')}, ...
-                        'current', {i, fails, obj.Training.learn_rate.value, obj.Training.momentum.param, val_loss}, ...
-                        'max', {obj.Training.epochs, obj.Training.early_stop, obj.Training.learn_rate.min_value, 1, obj.Training.loss('min')});
+                    stats = struct('label', {'Epoch', 'Learning rate', 'Momentum'}, ...
+                        'min', {1, 10, 0}, ...
+                        'current', {i, obj.Training.learn_rate.value, obj.Training.momentum.param}, ...
+                        'max', {obj.Training.epochs, obj.Training.learn_rate.min_value, 1});
                     if ~strcmp(obj.Training.regularization.type, 'none')
                         stats = cat(2, stats, struct('label', 'Reg.loss', ...
                             'min', 1, 'max', 0, 'current', reg_loss));
                     end
+                    if val_len > 0
+                        stats = cat(2, stats, struct('label', 'Val.loss', ...
+                            'min', obj.Training.loss('max'),...
+                            'max', obj.Training.loss('min'), 'current', val_loss));
+                    end
+                    if ~isinf(obj.Training.early_stop)
+                        stats = cat(2, stats, struct('label', 'Stale epochs', ...
+                            'min', 0, 'max', obj.Training.early_stop, 'current', fails));
+                    end
                     if i > 1
                         StatsPanel(f, p1, p2, stats);
                     else
-                        [f, p1, p2] = StatsPanel([], [], [], stats);
+                        [f, p1, p2] = StatsPanel([], [], [], stats, obj);
                     end
                 end
                 drawnow;
@@ -223,7 +245,7 @@ classdef Network < handle
             else
                 str_time = [num2str(round(el_time/60/60)) ' hours'];
             end
-            fprintf('Done training. After %d epochs (%s) validation loss is %f.\n', ...
+            fprintf('Done training. After %d epochs (%s) loss is %f.\n', ...
                 i, str_time, val_loss);
             obj.Mode = 'eval';
             if ~isinf(obj.Training.early_stop)
