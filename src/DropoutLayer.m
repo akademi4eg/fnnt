@@ -27,6 +27,9 @@ classdef DropoutLayer < Layer
         
         function Update(obj, ~, ~, ~, ~)
             obj.Mask = rand(size(obj.Mask)) > obj.DropRate;
+            if ~any(obj.Mask)
+                obj.Mask(randi(length(obj.Mask))) = true;
+            end
         end
         
         function reg = GetRegLoss(~, ~)

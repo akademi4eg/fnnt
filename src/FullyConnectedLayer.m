@@ -41,7 +41,10 @@ classdef FullyConnectedLayer < Layer
         end
         
         function PreTrain(obj, batches, train_params)
-            if ~strcmp(func2str(obj.Transfer), 'LogisticTransfer'), return; end
+            if ~strcmp(func2str(obj.Transfer), 'LogisticTransfer') ...
+                    || train_params.epochs < 1
+                return;
+            end
             fprintf('Pretraining\n');
             tic;
             obj.HidBiases = 0.01*randn(size(obj.Weights, 2), 1);
@@ -68,6 +71,13 @@ classdef FullyConnectedLayer < Layer
                     dW = -train_params.learn_rate.value*(pos_grad-neg_grad);
                     db = -train_params.learn_rate.value*(pos_vis-neg_vis);
                     dhb = -train_params.learn_rate.value*(pos_hid-neg_hid);
+                    % regularization
+                    if strcmp(train_params.regularization.type, 'L2')
+                        dW = dW + train_params.regularization.param * obj.Weights/numel(obj.Weights);
+                    elseif strcmp(train_params.regularization.type, 'L1')
+                        dW = dW + train_params.regularization.param * sign(obj.Weights)/numel(obj.Weights);
+                    end
+                    
                     obj.Weights = obj.Weights - dW;
                     obj.Biases = obj.Biases - db;
                     obj.HidBiases = obj.HidBiases - dhb;
@@ -94,7 +104,8 @@ classdef FullyConnectedLayer < Layer
                         break;
                     end
                 end
-                fprintf('After iteration %d, reconstruction error: %2.5f [fails: %d].\n', i, err, fails);
+                fprintf('After iteration %d, reconstruction error: %2.5f [fails: %d, reg.loss: %2.5f].\n', ...
+                    i, err, fails, obj.GetRegLoss(train_params));
                 drawnow;
             end
             el_time = toc;
@@ -130,6 +141,7 @@ classdef FullyConnectedLayer < Layer
         end
         
         function Forward(obj, batch)
+            assert(all(~isnan(batch.data(:))), 'NaN appeared in inputs!');
             batch.TransformData(obj.GetForwardFunction());
         end
         
@@ -139,14 +151,15 @@ classdef FullyConnectedLayer < Layer
         
         function Backward(obj, batch, grads_batch)
             gfun = obj.GetBackwardFunction();
+            assert(all(~isnan(grads_batch.data(:))), 'NaN appeared in grads!');
             grads_batch.TransformData(@(x)gfun(x, batch.GetDataAsMatrix()));
         end
         
         function reg = GetRegLoss(obj, train_params)
             if strcmp(train_params.regularization.type, 'L2')
-                reg = train_params.regularization.param * mean(obj.Weights(:).^2);
+                reg = train_params.regularization.param * sum(obj.Weights(:).^2)/2;
             elseif strcmp(train_params.regularization.type, 'L1')
-                reg = train_params.regularization.param * mean(abs(obj.Weights(:)));
+                reg = train_params.regularization.param * sum(abs(obj.Weights(:)));
             else
                 reg = 0;
             end
@@ -156,19 +169,20 @@ classdef FullyConnectedLayer < Layer
             obj.ForwardFun = [];
             obj.BackwardFun = [];
             % weights delta
-            dW = (grads_batch.GetDataAsMatrix().*obj.DerTransfer(batch_out.GetDataAsMatrix()))*batch_in.GetDataAsMatrix()';
+            delta = grads_batch.GetDataAsMatrix().*obj.DerTransfer(batch_out.GetDataAsMatrix());
+            dW = delta*batch_in.GetDataAsMatrix()';
             dW = dW / batch_in.GetBatchSize();
             % regularization
             if strcmp(train_params.regularization.type, 'L2')
-                dW = dW + train_params.regularization.param * obj.Weights/numel(obj.Weights);
+                dW = dW + train_params.regularization.param * obj.Weights;
             elseif strcmp(train_params.regularization.type, 'L1')
-                dW = dW + train_params.regularization.param * sign(obj.Weights)/numel(obj.Weights);
+                dW = dW + train_params.regularization.param * sign(obj.Weights);
             end
             if max(abs(dW(:))) > train_params.max_delta/train_params.learn_rate.value
                 dW = dW/max(abs(dW(:)))*train_params.max_delta/train_params.learn_rate.value;
             end
             % biases delta
-            db = mean(grads_batch.GetDataAsMatrix(), 2);
+            db = mean(delta, 2);
             if max(abs(db(:))) > train_params.max_delta/train_params.learn_rate.value
                 db = db/max(abs(db(:)))*train_params.max_delta/train_params.learn_rate.value;
             end
@@ -189,6 +203,8 @@ classdef FullyConnectedLayer < Layer
                 dW = train_params.learn_rate.value * dW;
                 db = train_params.learn_rate.value * db;
             end
+            assert(all(~isnan(dW(:))), 'NaN appeared in weights update!');
+            assert(all(~isnan(db(:))), 'NaN appeared in biases update!');
             % update!
             obj.Weights = obj.Weights - dW;
             obj.Biases = obj.Biases - db;

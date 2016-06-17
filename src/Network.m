@@ -55,7 +55,7 @@ classdef Network < handle
                 obj.Training.learn_rate.value = learn_rate;
             end
             if exist('learn_mult', 'var')
-                obj.Training.learn_rate.learn_mult = learn_mult;
+                obj.Training.learn_rate.mult = learn_mult;
             end
         end
         
@@ -147,6 +147,7 @@ classdef Network < handle
             len = 0;
             val_len = 0;
             val_loss = Inf;
+            prev_train_loss = Inf;
             for bi = 1:length(batches)
                 if strcmp(batches{bi}.set_id, 'trn')
                     len = len + batches{bi}.GetBatchSize();
@@ -183,6 +184,7 @@ classdef Network < handle
                 results = Batch(results(1:end/2, :), results(end/2+1:end, :));
                 val_results = Batch(val_results(1:end/2, :), val_results(end/2+1:end, :));
                 new_val_loss = obj.Training.loss(val_results);
+                train_loss = obj.Training.loss(results);
                 reg_loss = 0;
                 for l = obj.Layers
                     reg_loss = reg_loss + l{1}.GetRegLoss(obj.Training);
@@ -223,6 +225,13 @@ classdef Network < handle
                     else
                         [f, p1, p2] = StatsPanel([], [], [], stats, obj);
                     end
+                else
+                    fprintf('Epoch %d, loss is %f', ...
+                        i, val_loss);
+                    if ~strcmp(obj.Training.regularization.type, 'none')
+                        fprintf(', reg.loss %f', reg_loss);
+                    end
+                    fprintf('\n');
                 end
                 drawnow;
                 if fails >= obj.Training.early_stop
@@ -234,8 +243,11 @@ classdef Network < handle
                         + obj.Training.momentum.param;
                     obj.Training.momentum.param = min(obj.Training.momentum.param, obj.Training.momentum.end_param);
                 end
-                obj.Training.learn_rate.value = obj.Training.learn_rate.value*obj.Training.learn_rate.mult;
-                obj.Training.learn_rate.value = max(obj.Training.learn_rate.value, obj.Training.learn_rate.min_value);
+                if train_loss >= prev_train_loss
+                    obj.Training.learn_rate.value = obj.Training.learn_rate.value*obj.Training.learn_rate.mult;
+                    obj.Training.learn_rate.value = max(obj.Training.learn_rate.value, obj.Training.learn_rate.min_value);
+                end
+                prev_train_loss = train_loss;
             end
             el_time = toc;
             if el_time < 1000

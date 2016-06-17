@@ -32,9 +32,9 @@ classdef SoftMaxLayer < FullyConnectedLayer
             dW = dW / batch_in.GetBatchSize();
             % regularization
             if strcmp(train_params.regularization.type, 'L2')
-                dW = dW + train_params.regularization.param * obj.Weights/numel(obj.Weights);
+                dW = dW + train_params.regularization.param * obj.Weights;
             elseif strcmp(train_params.regularization.type, 'L1')
-                dW = dW + train_params.regularization.param * sign(obj.Weights)/numel(obj.Weights);
+                dW = dW + train_params.regularization.param * sign(obj.Weights);
             end
             if max(abs(dW(:))) > train_params.max_delta/train_params.learn_rate.value
                 dW = dW/max(abs(dW(:)))*train_params.max_delta/train_params.learn_rate.value;
@@ -51,6 +51,7 @@ classdef SoftMaxLayer < FullyConnectedLayer
             else
                 dW = train_params.learn_rate.value * dW;
             end
+            assert(all(~isnan(dW(:))), 'NaN appeared in weights update!');
             % update!
             obj.Weights = obj.Weights - dW;
             
