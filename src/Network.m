@@ -13,7 +13,8 @@ classdef Network < handle
                 'early_stop', Inf, 'max_delta', 0.1, ...
                 'learn_rate', struct('value', 1, 'min_value', 1e-8, 'mult', 0.99), ...
                 'regularization', struct('type', 'none', 'param', 0), ...
-                'momentum', struct('type', 'none', 'param', 0.5, 'step', 0.01, 'end_param', 0.99));
+                'momentum', struct('type', 'none', 'param', 0.5, 'step', 0.01, 'end_param', 0.99), ...
+                'state', struct('grad_overflow', 0));
             obj.Mode = 'blank';
         end
         
@@ -128,7 +129,7 @@ classdef Network < handle
         
         function Update(obj, results, grads)
             for i = 1:length(results)-1
-                obj.Layers{i}.Update(results(i), results(i+1), grads(i+1), ...
+                obj.Training = obj.Layers{i}.Update(results(i), results(i+1), grads(i+1), ...
                     obj.Training);
             end
         end
@@ -159,11 +160,18 @@ classdef Network < handle
                 % TRAIN
                 obj.Mode = 'train';
                 % permute batches on each iteration
+                obj.Training.flags.grad_overflow = 0;
+                trn_batches_num = 0;
                 for bi = randperm(length(batches))
                     if ~strcmp(batches{bi}.set_id, 'trn'), continue; end
+                    trn_batches_num = trn_batches_num + 1;
                     results = obj.Apply(copy(batches{bi}));
                     grads = obj.Backprop(results);
                     obj.Update(results, grads);
+                end
+                if obj.Training.flags.grad_overflow > 0
+                    perc = 100*obj.Training.flags.grad_overflow/trn_batches_num;
+                    warning(['Gradient overflow detected in ' num2str(perc) '% of batches!']);
                 end
                 % EVAL
                 obj.Mode = 'eval';
@@ -231,6 +239,7 @@ classdef Network < handle
                     if ~strcmp(obj.Training.regularization.type, 'none')
                         fprintf(', reg.loss %f', reg_loss);
                     end
+                    fprintf(', learn.rate %f', obj.Training.learn_rate.value);
                     fprintf('\n');
                 end
                 drawnow;
@@ -243,7 +252,7 @@ classdef Network < handle
                         + obj.Training.momentum.param;
                     obj.Training.momentum.param = min(obj.Training.momentum.param, obj.Training.momentum.end_param);
                 end
-                if train_loss >= prev_train_loss
+                if train_loss >= prev_train_loss || obj.Training.flags.grad_overflow
                     obj.Training.learn_rate.value = obj.Training.learn_rate.value*obj.Training.learn_rate.mult;
                     obj.Training.learn_rate.value = max(obj.Training.learn_rate.value, obj.Training.learn_rate.min_value);
                 end

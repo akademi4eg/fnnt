@@ -63,7 +63,7 @@ classdef NormalizerLayer < Layer
             end
         end
         
-        function Update(~, ~, ~, ~, ~)
+        function train_params = Update(~, ~, ~, ~, train_params)
         end
         
         function reg = GetRegLoss(~, ~)

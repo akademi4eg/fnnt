@@ -25,7 +25,7 @@ classdef DropoutLayer < Layer
             grads_batch.TransformData(@(x)bsxfun(@times, x, obj.Mask));
         end
         
-        function Update(obj, ~, ~, ~, ~)
+        function train_params = Update(obj, ~, ~, ~, train_params)
             obj.Mask = rand(size(obj.Mask)) > obj.DropRate;
             if ~any(obj.Mask)
                 obj.Mask(randi(length(obj.Mask))) = true;

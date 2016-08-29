@@ -24,7 +24,7 @@ classdef SoftMaxLayer < FullyConnectedLayer
             fun = obj.ForwardFun;
         end
         
-        function Update(obj, batch_in, batch_out, grads_batch, train_params)
+        function train_params = Update(obj, batch_in, batch_out, grads_batch, train_params)
             obj.ForwardFun = [];
             obj.BackwardFun = [];
             % weights delta
@@ -37,7 +37,9 @@ classdef SoftMaxLayer < FullyConnectedLayer
                 dW = dW + train_params.regularization.param * sign(obj.Weights);
             end
             if max(abs(dW(:))) > train_params.max_delta/train_params.learn_rate.value
-                dW = dW/max(abs(dW(:)))*train_params.max_delta/train_params.learn_rate.value;
+%                 dW = dW/max(abs(dW(:)))*train_params.max_delta/train_params.learn_rate.value;
+                train_params.flags.grad_overflow = train_params.flags.grad_overflow + 1;
+                return;
             end
             % momentum
             if strcmp(train_params.momentum.type, 'CM')

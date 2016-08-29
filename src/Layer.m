@@ -4,7 +4,7 @@ classdef (Abstract) Layer < matlab.mixin.Copyable
         PreTrain(obj, batches, train_params);
         Forward(obj, batch);
         Backward(obj, batch, grads_batch);
-        Update(obj, batch_in, batch_out, grads_batch, train_params);
+        train_params = Update(obj, batch_in, batch_out, grads_batch, train_params);
         reg = GetRegLoss(obj, train_params);
     end
 end

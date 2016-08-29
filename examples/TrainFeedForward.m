@@ -6,9 +6,9 @@ load ../data/mnist.mat
 net = Network();
 net.AddLayer(NormalizerLayer('binary'));
 % net.AddLayer(DropoutLayer(0.2));
-net.AddLayer(FullyConnectedLayer(100, @TansigTransfer, @DerTansigTransfer));
+net.AddLayer(FullyConnectedLayer(10, @LogisticTransfer, @DerLogisticTransfer));
 % net.AddLayer(DropoutLayer(0.5));
-net.AddLayer(FullyConnectedLayer(100, @TansigTransfer, @DerTansigTransfer));
+net.AddLayer(FullyConnectedLayer(10, @LogisticTransfer, @DerLogisticTransfer));
 % net.AddLayer(DropoutLayer(0.5));
 net.AddLayer(SoftMaxLayer());
 net.Configure(batches{1}.GetSample());
@@ -26,7 +26,7 @@ load('../data/mnist.mat', 'batches');
 % use momentum, dropout and regularization
 net.SetMomentum('CM', 0.5, 0.005, 0.9);
 net.SetRegularization('L2', 0.0001);
-net.SetTrainParams(1000, 5, 0.8);
+net.SetTrainParams(100, 5, 0.8);
 net.SetEarlyStoping(15);
 net.SetLoss(@CrossentropyLoss);
 net.Train(batches);
