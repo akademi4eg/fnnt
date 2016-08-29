@@ -88,8 +88,8 @@ classdef Network < handle
         function PreTrain(obj, batches)
             for l = obj.Layers
                 l{1}.PreTrain(batches, obj.Training);
-                for bi = batches
-                    l{1}.Forward(bi{1});
+                for bi = 1:length(batches)
+                    l{1}.Forward(batches{bi});
                 end
             end
         end

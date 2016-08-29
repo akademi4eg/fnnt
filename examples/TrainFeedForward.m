@@ -14,9 +14,9 @@ net.AddLayer(SoftMaxLayer());
 net.Configure(batches{1}.GetSample());
 %% Add monitoring
 net.SetMonitoringMode('text');
-% net.AddTrainingPlot(@PlotMissclassError);
+net.AddTrainingPlot(@PlotMissclassError);
 %% Pretraining
-net.SetTrainParams(0, 0.00001);
+net.SetTrainParams(100, 0.00001);
 net.SetRegularization('L2', 0.1);
 net.SetEarlyStoping(10);
 net.PreTrain(batches);
